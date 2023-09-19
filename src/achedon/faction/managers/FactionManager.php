@@ -10,6 +10,11 @@ use pocketmine\world\World;
 
 class FactionManager
 {
+    const RANK_MEMBER = "membre";
+    const RANK_OFFICER = "officier";
+    const RANK_RECRUIT = "recrue";
+    const RANK_CHEF = "chef";
+    const RANK_ESPION = "espion";
     private Config $config;
     private Faction $plugin;
 
@@ -159,16 +164,6 @@ class FactionManager
         return $this->config->getNested($name . ".claims");
     }
 
-    public function isChef(string $player): bool
-    {
-        foreach ($this->config->getAll() as $faction) {
-            if ($faction["members"]["chef"] == $player) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public function hasFaction(string $player): bool
     {
         foreach ($this->config->getAll() as $faction) {
@@ -190,7 +185,7 @@ class FactionManager
         return in_array($player, $this->config->getNested($name . ".members")["recruits"]);
     }
 
-    public function setRole(string $name, int $role): bool
+    public function setRole(string $name, string $role): bool
     {
         if (!$this->isFaction($name)) return false;
         $faction = $this->getFaction($name);
@@ -206,6 +201,13 @@ class FactionManager
         return $this->config->get($name);
     }
 
+    public function getRole(string $name, string $player): ?string
+    {
+        if (!$this->isFaction($name)) return null;
+        $faction = $this->getFaction($name);
+        return $faction["members"][$player];
+    }
+
     public function hasHome(string $name): bool
     {
         return !is_null($this->getHome($name));
@@ -217,8 +219,6 @@ class FactionManager
         if (is_null($home)) return null;
         return new Position((int)$home["x"], (int)$home["y"], (int)$home["z"], $this->plugin->getServer()->getWorldManager()->getWorldByName($home["world"]));
     }
-
-    //TODO: Claim
 
     public function setHome(string $name, Position $position): bool
     {
@@ -233,6 +233,8 @@ class FactionManager
         $config->save();
         return true;
     }
+
+    //TODO: Claim
 
     public function addInvite(string $name, string $player): bool
     {
@@ -287,5 +289,77 @@ class FactionManager
         }
         return $invites;
     }
+
+    public function hasPermission(string $name, string $player, string $permission): bool
+    {
+        if (!$this->isFaction($name)) return false;
+        if ($this->isChef($player)) return true;
+        $rank = $this->getPlayerFactionRank($name, $player);
+        return $this->rankHasPermission($name, $permission, $rank);
+    }
+
+    public function isChef(string $player): bool
+    {
+        foreach ($this->config->getAll() as $faction) {
+            if ($faction["members"]["chef"] == $player) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public function getPlayerFactionRank(string $name, string $player): ?string
+    {
+        if (!$this->isFaction($name)) return null;
+        $faction = $this->getFaction($name);
+        if (in_array($player, $faction["members"]["officers"])) {
+            return self::RANK_OFFICER;
+        } elseif (in_array($player, $faction["members"]["recruits"])) {
+            return self::RANK_RECRUIT;
+        } else {
+            return self::RANK_MEMBER;
+        }
+    }
+
+    public function rankHasPermission(string $name, string $permission, string $rank): bool
+    {
+        if (!$this->isFaction($name)) return false;
+        $faction = $this->getFaction($name);
+        return $faction["permissions"][$rank][$permission];
+    }
+
+    public function isSpy(string $name, string $player): bool
+    {
+        if (!$this->isFaction($name)) return false;
+        $faction = $this->getFaction($name);
+        return $faction["members"][$player] == self::RANK_ESPION;
+    }
+
+    public function isInvite(string $name, string $player): bool
+    {
+        if (!$this->isFaction($name)) return false;
+        $faction = $this->getFaction($name);
+        return in_array($player, $faction["invites"]);
+    }
+
+    public function addMember(string $name, string $player): bool
+    {
+        if (!$this->isFaction($name)) return false;
+        $faction = $this->getFaction($name);
+        $faction["members"]["recruits"][] = $player;
+        $this->config->set($name, $faction);
+        $this->config->save();
+        return true;
+    }
+
+    public function getPlayerFactionInvites(string $player): array
+    {
+        $invites = [];
+        foreach ($this->config->getAll() as $name => $faction) {
+            if (in_array($player, $faction["invites"])) $invites[] = $name;
+        }
+        return $invites;
+    }
+
 
 }
