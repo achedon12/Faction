@@ -1,0 +1,5 @@
+# configure here the language of the plugin
+# available languages : en, fr
+language: "fr"
+
+nametagformat: "{faction} - {player}"

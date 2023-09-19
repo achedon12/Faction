@@ -1,5 +1,5 @@
 name: Faction
-main: achedon\faction\Main
+main: achedon\faction\Faction
 version: 1.0.0
 api: 5.0.0
 author: achedon12
